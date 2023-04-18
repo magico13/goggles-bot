@@ -4,26 +4,30 @@ import requests
 import re
 import tempfile
 
+from goggles import GogglesApi
+
 intents = discord.Intents.default()
 intents.message_content = True
 client = discord.Client(intents=intents)
-api_url = "https://goggles.magico13.net/api/extract/text"
+api_url = "https://goggles.magico13.net"
+goggles = GogglesApi(api_url)
 token = os.environ.get('DISCORD_TOKEN')
 # permissions = 274877942784
 
 async def call_text_extraction_api(filename, filedata):
-    response = requests.post(
-        api_url,
-        files={"file": (filename, filedata)}
-    )
-
-    response.raise_for_status()
-    return response.json().get("text")
+    (code, responseJson) = goggles.extract_text(filename, filedata)
+    if code != 200:
+        print(f"Error calling text extraction API: {responseJson}")
+        return code, responseJson
+    return code, responseJson['text']
 
 async def process_file(message, filename, filedata):
     try:
-        response_text = await call_text_extraction_api(filename, filedata)
-
+        (code, response_text) = await call_text_extraction_api(filename, filedata)
+        if code != 200:
+            print(code, response_text)
+            await message.reply(f"There was an error sending the file to the text extraction API. {code}: {response_text}")
+            return
         if response_text is None:
             await message.reply("There was an error processing the file. The response did not contain a 'text' field.")
         elif len(response_text) >= 2000:
